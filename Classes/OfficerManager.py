@@ -130,6 +130,7 @@ class OfficerManager:
                     await self.remove_officer(
                         member_id,
                         reason="this person is in the server but does no longer have an LPD Officer role",
+                        display_name=member.display_name,
                     )
                     continue
 

@@ -77,3 +77,14 @@ CREATE TABLE UserStrikes
     date DATETIME,
     entry_number INT PRIMARY KEY AUTO_INCREMENT
 );
+
+DROP TABLE IF EXISTS RenewalTimes;
+CREATE TABLE RenewalTimes
+(
+    officer_id BIGINT UNSIGNED,
+    renewed_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    renewed_by BIGINT UNSIGNED,
+    reason TEXT,
+
+    CONSTRAINT officer_id_FK_RT FOREIGN KEY (officer_id) REFERENCES Officers(officer_id)
+);
