@@ -375,19 +375,18 @@ class Officer:
 
     # Old roles functions
     
-    @property
-    def old_roles(self):
+    def __get_old_roles(self):
         return self._old_roles
 
-    @old_roles.setter
-    def old_roles(self, string):
-        self._old_roles = []
-        for role_id in string.split(','):
-            self._old_roles.append(role_id)
+    def __set_old_roles(self, string):
+        self._old_roles = [int(x) for x in string.split(',')]
+    
+    old_roles = property(__get_old_roles, __set_old_roles)
         
     async def grant_old_roles(self):
         if self._old_roles != []:
-            self.member.add_roles([self.bot.officer_manager.guild.get_role(role_id) for role_id in self._old_roles])
+            for role_id in self._old_roles:
+                await self.member.add_roles(self.bot.officer_manager.guild.get_role(role_id))
             return True
         else:
             return False

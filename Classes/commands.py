@@ -17,6 +17,7 @@ import fuzzywuzzy.process
 # Community
 import discord
 from discord.ext import commands
+from discord.errors import Forbidden
 import texttable
 import arrow
 
@@ -1362,7 +1363,7 @@ class Moderation(commands.Cog):
                     members_not_granted.append(member.mention)
             else:
                 members_not_granted.append(member.mention)
-        if members_not_granted != []:
+        if members_not_granted == []:
             await ctx.send("Success!")
         else:
             await ctx.send("Could not grant roles to " + ' '.join(members_not_granted))

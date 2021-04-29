@@ -22,12 +22,14 @@ from Classes.extra_functions import handle_error, role_id_index
 
 class OfficerManager:
     def __init__(
-        self, all_officer_ids, ex_officer_ids, bot, run_before_officer_removal=None
+        self, all_officer_ids, _list_ex_officers, bot, run_before_officer_removal=None
     ):
         self.bot = bot
         self._before_officer_removal = run_before_officer_removal
         self.all_officer_ids = all_officer_ids
-        self.ex_officer_ids = ex_officer_ids
+        self.ex_officers = {}
+        for item in _list_ex_officers:
+            self.ex_officers[item[0]] = {"roles": item[1], "reason": item[2], "stopped_monitoring_time": item[3]}
 
         # Get the guild
         self.guild = bot.get_guild(bot.settings["Server_ID"])
@@ -104,13 +106,10 @@ class OfficerManager:
             print(error)
             print("Shutting down...")
             exit()
-        
-        for item in _list_ex_officers:
-            self.ex_officers[item[0]] = {"roles": item[1], "reason": item[2], "stopped_monitoring_time": item[3]}
 
         return cls(
             ([x[0] for x in result]),
-            self.ex_officers.keys(),
+            _list_ex_officers,
             bot,
             run_before_officer_removal=run_before_officer_removal,
         )
@@ -210,8 +209,8 @@ class OfficerManager:
         self._all_officers[officer_id] = new_officer
 
         if officer_id in self.ex_officers.keys():
-            # ISNERT REINSTATION CODE HERE
-            new_officer.old_roles(self.ex_officers[officer_id]["roles"])
+            # INSERT REINSTATION CODE HERE
+            new_officer.old_roles = self.ex_officers[officer_id]["roles"]
             ### await new_officer.grant_old_roles()
             del self.ex_officers[officer_id]
             await self.bot.sql.request(
@@ -295,7 +294,7 @@ class OfficerManager:
             msg_string += " because " + str(reason)
 
         # Add this Officer to the list of ExOfficers
-        roles = ",".join([str(role.id) for role in officer.member.roles])
+        roles = ",".join([str(role.id) for role in officer.member.roles if role.name.lower() != '@everyone'])
 
         await self.bot.sql.request(
             "INSERT INTO ExOfficers (officer_id, roles, reason) VALUES (%s, %s, %s)",
