@@ -21,10 +21,13 @@ from Classes.extra_functions import handle_error, role_id_index
 
 
 class OfficerManager:
-    def __init__(self, all_officer_ids, bot, run_before_officer_removal=None):
+    def __init__(
+        self, all_officer_ids, ex_officer_ids, bot, run_before_officer_removal=None
+    ):
         self.bot = bot
         self._before_officer_removal = run_before_officer_removal
         self.all_officer_ids = all_officer_ids
+        self.ex_officer_ids = ex_officer_ids
 
         # Get the guild
         self.guild = bot.get_guild(bot.settings["Server_ID"])
@@ -42,7 +45,7 @@ class OfficerManager:
             and isinstance(c, discord.channel.TextChannel)
         ]
 
-        # Add all the officers to the list
+        # Add all the officers to the dict
         self._all_officers = dict()
         self._officers_needing_removal = []
         print("Adding all the officers to the Officer Manager")
@@ -88,13 +91,26 @@ class OfficerManager:
             result = await bot.sql.request("SELECT officer_id FROM Officers")
 
         except Exception as error:
-            print("ERROR failed to fetch officers from database:")
+            print("ERROR: Failed to fetch officers from database:")
             print(error)
             print("Shutting down...")
             exit()
 
+        try:
+            _list_ex_officers = await bot.sql.request("SELECT officer_id, roles, reason, stopped_monitoring_time FROM ExOfficers")
+        
+        except Exception as error:
+            print("ERROR: failed to fetch ex-officers from database")
+            print(error)
+            print("Shutting down...")
+            exit()
+        
+        for item in _list_ex_officers:
+            self.ex_officers[item[0]] = {"roles": item[1], "reason": item[2], "stopped_monitoring_time": item[3]}
+
         return cls(
-            (x[0] for x in result),
+            ([x[0] for x in result]),
+            self.ex_officers.keys(),
             bot,
             run_before_officer_removal=run_before_officer_removal,
         )
@@ -175,6 +191,7 @@ class OfficerManager:
                     "INSERT INTO Officers(officer_id, started_monitoring_time) Values (%s, %s)",
                     (officer_id, datetime.utcnow()),
                 )
+
             except mysql_errors.IntegrityError as error:
                 print(repr(error.args))
                 return None
@@ -192,18 +209,33 @@ class OfficerManager:
         # Add the officer to the _all_officers list
         self._all_officers[officer_id] = new_officer
 
+        if officer_id in self.ex_officers.keys():
+            # ISNERT REINSTATION CODE HERE
+            new_officer.old_roles(self.ex_officers[officer_id]["roles"])
+            ### await new_officer.grant_old_roles()
+            del self.ex_officers[officer_id]
+            await self.bot.sql.request(
+                "DELETE FROM ExOfficers WHERE officer_id = %s", (officer_id)
+            )
+            added_or_readded = "readded"
+        else:
+            added_or_readded = "added"
+
         # Print
         msg_string = (
             "DEBUG: "
             + new_officer.display_name
             + " ("
             + str(new_officer.id)
-            + ") has been added to the LPD Officer Monitor"
+            + ") has "
+            + added_or_readded
+            + " to the LPD Officer Monitor"
         )
         if issue is None:
             msg_string += " the correct way."
         else:
             msg_string += " but " + str(issue)
+
         print(msg_string)
         channel = self.bot.get_channel(self.bot.settings["error_log_channel"])
         await channel.send(msg_string)
@@ -212,6 +244,8 @@ class OfficerManager:
         return new_officer
 
     async def remove_officer(self, officer_id, reason=None, display_name=None):
+
+        officer = self.get_officer(officer_id)
 
         # Run the function that needs to run before the officer removal
         try:
@@ -242,6 +276,9 @@ class OfficerManager:
         await self.bot.sql.request(
             "DELETE FROM Officers WHERE officer_id = %s", (officer_id)
         )
+        await self.bot.sql.request(
+            "DELETE FROM ExOfficers WHERE officer_id = %s", (officer_id)
+        )
 
         # Remove the officer from the officer list
         try:
@@ -256,6 +293,20 @@ class OfficerManager:
         )
         if reason is not None:
             msg_string += " because " + str(reason)
+
+        # Add this Officer to the list of ExOfficers
+        roles = ",".join([str(role.id) for role in officer.member.roles])
+
+        await self.bot.sql.request(
+            "INSERT INTO ExOfficers (officer_id, roles, reason) VALUES (%s, %s, %s)",
+            (
+                officer_id,
+                roles,
+                msg_string,
+            ),
+        )
+        self.ex_officers[officer_id] = {"roles": roles, "reason": msg_string, "stopped_monitoring_time": datetime.utcnow()}
+
         print(msg_string)
         channel = self.bot.get_channel(self.bot.settings["error_log_channel"])
         await channel.send(msg_string)

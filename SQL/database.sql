@@ -15,6 +15,14 @@ CREATE TABLE Officers
     started_monitoring_time DATETIME
 );
 
+CREATE TABLE ExOfficers
+(
+	officer_id BIGINT UNSIGNED PRIMARY KEY,
+    roles MEDIUMTEXT,
+    reason MEDIUMTEXT,
+	stopped_monitoring_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE Detainees
 (
 	member_id BIGINT UNSIGNED PRIMARY KEY,

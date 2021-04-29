@@ -29,6 +29,7 @@ class Officer:
         self._on_duty_start_time = None
         self.is_on_duty = False
         self.squad = None
+        self._old_roles = []
 
     def go_on_duty(self):
 
@@ -371,6 +372,25 @@ class Officer:
             set(self.member.roles) & set(self.bot.officer_manager.all_lpd_ranks)
         )
         return max(intersection, key=lambda item: item.position)
+
+    # Old roles functions
+    
+    @property
+    def old_roles(self):
+        return self._old_roles
+
+    @old_roles.setter
+    def old_roles(self, string):
+        self._old_roles = []
+        for role_id in string.split(','):
+            self._old_roles.append(role_id)
+        
+    async def grant_old_roles(self):
+        if self._old_roles != []:
+            self.member.add_roles([self.bot.officer_manager.guild.get_role(role_id) for role_id in self._old_roles])
+            return True
+        else:
+            return False
 
     # Internal functions
 

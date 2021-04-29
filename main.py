@@ -26,6 +26,7 @@ from Classes.commands import (
     Inactivity,
     VRChatAccoutLink,
     Applications,
+    Programming,
     Moderation,
     Other,
 )
@@ -342,6 +343,7 @@ bot.add_cog(Time(bot))
 bot.add_cog(Inactivity(bot))
 bot.add_cog(VRChatAccoutLink(bot))
 bot.add_cog(Applications(bot))
+bot.add_cog(Programming(bot))
 bot.add_cog(Moderation(bot))
 bot.add_cog(Other(bot))
 

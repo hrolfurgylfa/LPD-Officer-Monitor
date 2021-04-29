@@ -1097,6 +1097,77 @@ class Applications(commands.Cog):
                 await message.delete()
 
 
+class Programming(commands.Cog):
+    """Here are all the commands for the Programming Team for maintenance and debug."""
+
+    def __init__(self, bot):
+        self.bot = bot
+        self.color = discord.Color.blurple()
+
+    @checks.is_team_bot_channel()
+    @checks.is_programming_team()
+    @commands.command()
+    async def shutdown(self, ctx):
+        """This command shuts down the bot cleanly."""
+
+        await ctx.channel.send("Shutting down the bot now!")
+        whostr = f"{ctx.channel.name} by {ctx.author.display_name}"
+        await clean_shutdown(self.bot, ctx.channel.name, ctx.author.display_name)
+
+    @checks.is_admin_bot_channel()
+    @checks.is_white_shirt()
+    @commands.command()
+    async def list_ex_officers(self, ctx):
+        """This is a debug command to list all ex officers"""
+
+        if self.bot.officer_manager.ex_officer_ids == []:
+            payload = "There are no ex-officers on file"
+        else:
+            payload = ", ".join(
+                [str(x) for x in self.bot.officer_manager.ex_officer_ids]
+            )
+
+        await ctx.send(ctx.author.mention + " " + payload)
+
+    @checks.is_team_bot_channel()
+    @checks.is_programming_team()
+    @commands.command(usage="`[python code]`")
+    async def exec(self, ctx, *args):
+        """
+        Execute a python function. Double-quotes are forbidden.
+        If you require output to be sent back to the channel, 
+        set `self.result` to your output at the end of your code. 
+        You may run multiple lines by utilizing a code block. 
+        NOTE: asynchronous opertation is best accomplished by putting all of your code
+              into a single function having `self` as an argument, and then calling that function with
+                    `asyncio.run(__my_function__(self))`"""
+
+        self.result = None
+
+        async def __return_value__():
+            if self.result:
+                await send_long(ctx.channel, str(self.result), code_block=True)
+                self.result = None
+                return
+
+        if ctx.message.content.count("```") >= 2:
+            function = ctx.message.content.split("```")[1]
+        else:
+            function = " "
+            function = function.join(args)
+
+        if len(args) == 0:
+            self.result = "Error: no statement provided."
+            await __return_value__()
+        else:
+            try:
+                exec(function)
+                await __return_value__()
+            except Exception as e:
+                self.result = e
+                await __return_value__()
+
+
 class Moderation(commands.Cog):
     """Here are all commands that relate to moderation in general."""
 
@@ -1274,6 +1345,27 @@ class Moderation(commands.Cog):
             await ctx.channel.send(
                 f'{self.bot.officer_manager.guild.get_role(self.bot.settings["moderator_role"]).mention} {users_detained} have received 3 strikes in the last two weeks.'
             )
+
+    @checks.is_admin_bot_channel()
+    @checks.is_white_shirt()
+    @commands.command()
+    async def grant_old_roles(self, ctx):
+        """Give mentioned Officers their old roles back."""
+        
+        members_not_granted = []
+        for member in ctx.message.mentions:
+            officer = self.bot.officer_manager.get_officer(member.id)
+            if officer and officer.old_roles != []:
+                try:
+                    await officer.grant_old_roles()
+                except Forbidden:
+                    members_not_granted.append(member.mention)
+            else:
+                members_not_granted.append(member.mention)
+        if members_not_granted != []:
+            await ctx.send("Success!")
+        else:
+            await ctx.send("Could not grant roles to " + ' '.join(members_not_granted))
 
 
 class Other(commands.Cog):
@@ -1508,13 +1600,3 @@ class Other(commands.Cog):
 
         # Send the results
         await ctx.channel.send(embed=embed)
-
-    @checks.is_team_bot_channel()
-    @checks.is_programming_team()
-    @commands.command()
-    async def shutdown(self, ctx):
-        """This command shuts down the bot cleanly."""
-
-        await ctx.channel.send("Shutting down the bot now!")
-        whostr = f"{ctx.channel.name} by {ctx.author.display_name}"
-        await clean_shutdown(self.bot, ctx.channel.name, ctx.author.display_name)
